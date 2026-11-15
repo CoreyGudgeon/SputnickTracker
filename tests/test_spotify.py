@@ -67,19 +67,19 @@ def test_sync_adds_each_track_once_and_remembers_misses():
     heard(store, Match("3", "Artist C", "One Off"), hits=1)           # below min_hits
     client = FakeSpotify({"isrc:X1": [sp("spotify:track:a", "Track A", "Artist A")]})
 
-    first = sync(store, client)
+    first = sync(store, client, min_hits=2)
     assert first.added == ["Artist A - Track A"]
     assert first.not_found == ["Artist B - Track B"]
     assert client.playlists == {"pl1": ["spotify:track:a"]}
 
     searches = len(client.queries)
-    second = sync(store, client)
+    second = sync(store, client, min_hits=2)
     assert (second.added, second.not_found) == ([], [])
     assert len(client.queries) == searches          # nothing searched again
     assert client.playlists == {"pl1": ["spotify:track:a"]}
 
     client.by_query["track b"] = [sp("spotify:track:b", "Track B", "Artist B")]
-    third = sync(store, client, retry_missing=True)
+    third = sync(store, client, min_hits=2, retry_missing=True)
     assert third.added == ["Artist B - Track B"]
     assert client.playlists == {"pl1": ["spotify:track:a", "spotify:track:b"]}
 
@@ -113,3 +113,10 @@ def test_background_client_never_prompts_when_not_signed_in(tmp_path):
     api = SpotifyAPI("client", tmp_path / "token.json", interactive=False)
     with pytest.raises(SpotifyError, match="not signed in"):
         api.search_tracks("anything", 1)
+
+
+def test_single_clip_matches_are_synced_by_default():
+    store = Store(":memory:")
+    heard(store, Match("1", "Artist A", "Track A", isrc="X1"), hits=1)
+    client = FakeSpotify({"isrc:X1": [sp("spotify:track:a", "Track A", "Artist A")]})
+    assert sync(store, client).added == ["Artist A - Track A"]

@@ -133,7 +133,7 @@ class SyncResult:
 
 
 def sync(store: Store, client: SpotifyClient, playlist_name: str = "Radio Sputnik",
-         min_hits: int = 2, retry_missing: bool = False, dry_run: bool = False) -> SyncResult:
+         min_hits: int = 1, retry_missing: bool = False, dry_run: bool = False) -> SyncResult:
     result = SyncResult(playlist_id=store.get_setting("spotify_playlist_id"))
 
     # 1. Look up tracks that have not been checked yet.

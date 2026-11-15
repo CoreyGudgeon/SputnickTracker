@@ -76,8 +76,9 @@ def main(argv: list[str] | None = None) -> int:
     sync.add_argument("--client-id", help="Spotify app client ID (only needed the first time)")
     sync.add_argument("--playlist", default="Radio Sputnik",
                       help="name for the playlist when it is first created")
-    sync.add_argument("--min-hits", type=int, default=2,
-                      help="only sync tracks matched by at least this many clips (default: 2)")
+    sync.add_argument("--min-hits", type=int, default=1,
+                      help="only sync tracks matched by at least this many clips (default: 1, "
+                           "every identified track)")
     sync.add_argument("--retry-missing", action="store_true",
                       help="search again for tracks Spotify did not have last time")
     sync.add_argument("--dry-run", action="store_true",

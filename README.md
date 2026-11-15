@@ -109,7 +109,8 @@ After that, the client ID and login are remembered:
 .venv/bin/python -m sputnik_tracker sync
 ```
 
-Options: `--dry-run` (show what would be added), `--min-hits N` (default 2),
+Options: `--dry-run` (show what would be added), `--min-hits N` (default 1:
+every identified track; 2 or more skips tracks matched by a single clip),
 `--retry-missing` (search again for tracks Spotify did not have),
 `--playlist NAME` (name used when the playlist is first created; default
 "Radio Sputnik").
