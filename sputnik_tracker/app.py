@@ -111,11 +111,23 @@ def run_app(db: str, stream_url: str) -> None:
             self.opener = rumps.Timer(self.open_on_start, 0.5)
             self.opener.start()
 
+        def show_title(self, text):
+            self.title = text  # rumps' own bookkeeping
+            # rumps sets the text with NSStatusItem.setTitle_, which newer macOS
+            # ignores, leaving an empty, invisible item; the button is the
+            # supported way.
+            try:
+                self._nsapp.nsstatusitem.button().setTitle_(text)
+            except AttributeError:
+                pass  # before the app has started there is no status item yet
+
         def open_on_start(self, _):
             self.opener.stop()
             try:  # rumps keeps the status item on its app delegate
                 item = self._nsapp.nsstatusitem
-                log.info("APP menu bar item created (visible: %s)", bool(item.isVisible()))
+                self.show_title(self.title)
+                log.info("APP menu bar item created (visible: %s, text: %r)",
+                         bool(item.isVisible()), str(item.button().title()))
             except Exception as exc:
                 log.warning("APP menu bar item missing: %s", exc)
             self.on_show_panel(None)
@@ -145,7 +157,7 @@ def run_app(db: str, stream_url: str) -> None:
             if self.panel is not None:
                 self.panel.update(state)
             self.toggle.state = 1 if state["listening"] else 0
-            self.title = "Sputnik ●" if state["listening"] else "Sputnik ○"
+            self.show_title("Sputnik ●" if state["listening"] else "Sputnik ○")
             self.track.title = (f"Last: {state['last_track']}" if state["last_track"]
                                 else "Nothing identified yet")
             self.counts.title = (f"{state['tracks']} tracks logged, "
