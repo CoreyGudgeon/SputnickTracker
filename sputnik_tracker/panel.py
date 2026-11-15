@@ -15,7 +15,8 @@ PAGE = Path(__file__).resolve().parent / "ui" / "panel.html"
 HANDLER_NAME = "tracker"   # window.webkit.messageHandlers.<this> in the page
 TITLE = "TeknoRadio"
 SIZE = (760, 780)
-STATE_KEYS = ("listening", "tracks", "in_playlist", "last_track", "message", "recent")
+STATE_KEYS = ("listening", "tracks", "in_playlist", "in_tidal", "tidal_enabled",
+              "last_track", "message", "recent")
 
 
 def state_script(state: dict) -> str:

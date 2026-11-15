@@ -11,6 +11,7 @@ def test_state_script_passes_the_snapshot_as_json():
     assert script.startswith("window.setState && window.setState(") and script.endswith(");")
     data = json.loads(script[len("window.setState && window.setState("):-2])
     assert data == {"listening": True, "tracks": 58, "in_playlist": 23, "recent": recent,
+                    "in_tidal": None, "tidal_enabled": None,
                     "last_track": 'Artist "A" - </script>', "message": ""}
 
 

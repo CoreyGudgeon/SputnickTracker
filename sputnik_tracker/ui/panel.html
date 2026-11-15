@@ -310,6 +310,14 @@
   .grid { grid-template-columns: repeat(16, 10px); gap: 4px; }
   .grid i { width: 10px; height: 10px; }
   .entry { height: 22px; }
+  .entry { grid-template-columns: 46px minmax(0, 1fr) 86px 66px; gap: 8px; }
+  .entry .sp { gap: 6px; letter-spacing: 1.5px; }
+  .sp.na { color: #48504A; }
+  .bulb.na { background: transparent; border: 1px dashed #3E4540; box-shadow: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .counters { gap: 7px; }
+  .digits { font-size: 18px; min-width: 58px; padding: 4px 6px 3px; letter-spacing: 2px; }
+  .counter.na .digits { color: #5C4A2C; text-shadow: none; }
   .picto { display: flex; gap: 5px; }
   .picto span {
     width: 26px; height: 26px; border-radius: 3px; display: grid; place-items: center;
@@ -468,7 +476,8 @@
       </div>
       <div class="counters">
         <div class="counter"><span class="digits" id="tracks">0000</span>ТРЕКИ</div>
-        <div class="counter"><span class="digits" id="playlist">0000</span>ПЛЕЙЛИСТ</div>
+        <div class="counter"><span class="digits" id="playlist">0000</span>SPOTIFY</div>
+        <div class="counter na" id="tidal-counter"><span class="digits" id="tidal">----</span>TIDAL</div>
       </div>
     </div>
   </section>
@@ -484,7 +493,7 @@
       <div class="legend" aria-hidden="true">
         <span><i class="bulb synced"></i>IN PLAYLIST</span>
         <span><i class="bulb queued"></i>QUEUED</span>
-        <span><i class="bulb missing"></i>NOT ON SPOTIFY</span>
+        <span><i class="bulb missing"></i>NOT AVAILABLE</span>
         <span><i class="bulb unchecked"></i>NOT CHECKED</span>
       </div>
     </div>
@@ -594,16 +603,29 @@
     document.getElementById('needle').style.transform = on ? '' : 'rotate(-52deg)';
     document.getElementById('tracks').textContent = pad(s.tracks);
     document.getElementById('playlist').textContent = pad(s.in_playlist);
+    tidalOn = !!s.tidal_enabled;
+    document.getElementById('tidal').textContent = tidalOn ? pad(s.in_tidal) : '----';
+    document.getElementById('tidal-counter').classList.toggle('na', !tidalOn);
     document.getElementById('message').textContent = s.message || (on ? 'Listening to Radio Sputnik' : 'Not listening');
     if (s.recent) renderLog(s.recent);
     document.getElementById('uplink').textContent = on ? 'UPLINK ··· ACTIVE' : 'UPLINK ··· STANDBY';
     paintMini();
   };
 
-  var SPOTIFY = {
-    synced: 'IN PLAYLIST', queued: 'QUEUED',
-    missing: 'NOT ON SPOTIFY', unchecked: 'NOT CHECKED'
+  var tidalOn = false;
+  var STATES = {
+    synced: 'in playlist', queued: 'found, not added yet',
+    missing: 'not available', unchecked: 'not checked yet', na: 'not set up'
   };
+  function chip(service, status) {
+    if (!STATES[status]) status = 'unchecked';
+    var sp = el('span', 'sp ' + status);
+    sp.appendChild(el('i', 'bulb ' + status));
+    sp.appendChild(document.createTextNode(service));
+    sp.appendChild(el('span', 'sr', ': ' + STATES[status]));
+    sp.title = service + ': ' + STATES[status];
+    return sp;
+  }
   function clock(iso) {
     var d = new Date(iso);
     if (isNaN(d)) return '--:--';
@@ -620,14 +642,11 @@
     log.textContent = '';
     if (!recent.length) { log.appendChild(el('div', 'entry empty', 'Nothing identified yet')); return; }
     recent.forEach(function (t, i) {
-      var status = SPOTIFY[t.status] ? t.status : 'unchecked';
       var row = el('div', 'entry' + (i === 0 ? ' new' : ''));
       row.appendChild(el('span', 'time', clock(t.heard)));
       row.appendChild(el('span', 'track', t.artist + ' – ' + t.title));
-      var sp = el('span', 'sp ' + status);
-      sp.appendChild(el('i', 'bulb ' + status));
-      sp.appendChild(document.createTextNode(SPOTIFY[status]));
-      row.appendChild(sp);
+      row.appendChild(chip('SPOTIFY', t.spotify || t.status));
+      row.appendChild(chip('TIDAL', tidalOn ? t.tidal : 'na'));
       log.appendChild(row);
     });
   }

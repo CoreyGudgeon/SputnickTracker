@@ -192,24 +192,29 @@ class Store:
         ).fetchone()
 
     def recent_plays(self, limit: int = 6) -> list[dict]:
-        """The latest plays, newest first, each with where it stands on Spotify:
-        'synced' (in the playlist), 'queued' (found, not added yet),
-        'missing' (Spotify does not have it) or 'unchecked' (not looked up yet)."""
+        """The latest plays, newest first, each with where it stands on Spotify
+        and on Tidal: 'synced' (in the playlist), 'queued' (found, not added
+        yet), 'missing' (the service does not have it) or 'unchecked' (not
+        looked up yet). 'status' repeats the Spotify one."""
         rows = self.db.execute(
-            "SELECT p.artist, p.title, p.last_seen, s.track_key AS checked, "
-            "       s.spotify_uri, s.added_at "
-            "FROM plays p LEFT JOIN spotify s USING (track_key) "
+            "SELECT p.artist, p.title, p.last_seen, "
+            "       s.track_key AS s_checked, s.spotify_uri AS s_found, s.added_at AS s_added, "
+            "       t.track_key AS t_checked, t.tidal_id AS t_found, t.added_at AS t_added "
+            "FROM plays p "
+            "LEFT JOIN spotify s ON s.track_key = p.track_key "
+            "LEFT JOIN tidal t ON t.track_key = p.track_key "
             "ORDER BY p.last_seen DESC, p.id DESC LIMIT ?", (limit,)).fetchall()
 
-        def status(row) -> str:
-            if row["added_at"]:
+        def status(row, prefix: str) -> str:
+            if row[f"{prefix}_added"]:
                 return "synced"
-            if row["spotify_uri"]:
+            if row[f"{prefix}_found"]:
                 return "queued"
-            return "missing" if row["checked"] else "unchecked"
+            return "missing" if row[f"{prefix}_checked"] else "unchecked"
 
         return [{"artist": r["artist"], "title": r["title"], "heard": r["last_seen"],
-                 "status": status(r)} for r in rows]
+                 "status": status(r, "s"), "spotify": status(r, "s"), "tidal": status(r, "t")}
+                for r in rows]
 
     def stats(self) -> dict[str, int]:
         counts = {"match": 0, "no_match": 0, "error": 0}
@@ -221,6 +226,9 @@ class Store:
         ).fetchone()[0]
         counts["in_playlist"] = self.db.execute(
             "SELECT COUNT(*) FROM spotify WHERE added_at IS NOT NULL"
+        ).fetchone()[0]
+        counts["in_tidal"] = self.db.execute(
+            "SELECT COUNT(*) FROM tidal WHERE added_at IS NOT NULL"
         ).fetchone()[0]
         counts["confirmed_tracks"] = len(self.tracks(min_hits=2))
         return counts

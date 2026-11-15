@@ -87,3 +87,22 @@ def test_recent_plays_show_spotify_status_newest_first():
         ("Title d", "unchecked"), ("Title c", "missing"), ("Title b", "queued")]
     assert recent[0]["heard"] == "2026-11-15T21:00:00+00:00"
     assert store.recent_plays()[-1]["status"] == "synced"
+
+
+def test_recent_plays_show_tidal_status_alongside_spotify():
+    store = Store(":memory:")
+    t0 = datetime(2026, 11, 15, 20, 0, tzinfo=timezone.utc)
+    for i, key in enumerate(["a", "b", "c"]):
+        store.record_match(Match(key, f"Artist {key}", f"Title {key}"), t0 + timedelta(minutes=20 * i))
+    store.save_lookup("spotify", "a", "spotify:track:a", "isrc")
+    store.mark_added(["a"])
+    store.save_lookup("tidal", "a", "111", "isrc")             # on Tidal, not added yet
+    store.save_lookup("tidal", "b", None, None)                # Tidal does not have it
+    store.save_lookup("tidal", "c", "333", "search")
+    store.mark_added(["c"], service="tidal")
+
+    by_title = {r["title"]: (r["spotify"], r["tidal"]) for r in store.recent_plays()}
+    assert by_title == {"Title a": ("synced", "queued"), "Title b": ("unchecked", "missing"),
+                        "Title c": ("unchecked", "synced")}
+    stats = store.stats()
+    assert (stats["in_playlist"], stats["in_tidal"]) == (1, 1)
