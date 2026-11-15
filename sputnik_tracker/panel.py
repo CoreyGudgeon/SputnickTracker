@@ -14,7 +14,7 @@ from typing import Callable
 PAGE = Path(__file__).resolve().parent / "ui" / "panel.html"
 HANDLER_NAME = "tracker"   # window.webkit.messageHandlers.<this> in the page
 TITLE = "TeknoRadio"
-SIZE = (760, 720)
+SIZE = (760, 780)
 STATE_KEYS = ("listening", "tracks", "in_playlist", "last_track", "message", "recent")
 
 
