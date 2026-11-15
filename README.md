@@ -137,7 +137,9 @@ That creates `Sputnik Tracker.app` in the Applications folder inside your home
 folder (and removes the always-on background service below, if installed).
 Open it from Spotlight or Finder. It opens the TeknoRadio control desk, a
 window with a big **СЛУШАТЬ / LISTEN** switch (also the space bar), the track
-counts, the last track, and Sync and Playlist buttons. Closing the window keeps
+counts, a log of the last six tracks with a lamp for each showing whether it
+is in the Spotify playlist (green), found but not added yet (amber), not on
+Spotify (red) or not checked yet (dark), and Sync and Playlist buttons. Closing the window keeps
 the app running; reopen it with **Open Control Desk** in the menu. It shows **Sputnik ●** in the menu bar while
 listening and **Sputnik ○** when switched off; the menu has the **Listening**
 switch, the last track, counts, **Open Spotify Playlist**, **Sync to Spotify

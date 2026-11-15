@@ -172,6 +172,26 @@ class Store:
             "SELECT artist, title, last_seen FROM plays ORDER BY last_seen DESC, id DESC LIMIT 1"
         ).fetchone()
 
+    def recent_plays(self, limit: int = 6) -> list[dict]:
+        """The latest plays, newest first, each with where it stands on Spotify:
+        'synced' (in the playlist), 'queued' (found, not added yet),
+        'missing' (Spotify does not have it) or 'unchecked' (not looked up yet)."""
+        rows = self.db.execute(
+            "SELECT p.artist, p.title, p.last_seen, s.track_key AS checked, "
+            "       s.spotify_uri, s.added_at "
+            "FROM plays p LEFT JOIN spotify s USING (track_key) "
+            "ORDER BY p.last_seen DESC, p.id DESC LIMIT ?", (limit,)).fetchall()
+
+        def status(row) -> str:
+            if row["added_at"]:
+                return "synced"
+            if row["spotify_uri"]:
+                return "queued"
+            return "missing" if row["checked"] else "unchecked"
+
+        return [{"artist": r["artist"], "title": r["title"], "heard": r["last_seen"],
+                 "status": status(r)} for r in rows]
+
     def stats(self) -> dict[str, int]:
         counts = {"match": 0, "no_match": 0, "error": 0}
         for row in self.db.execute("SELECT status, COUNT(*) AS n FROM samples GROUP BY status"):

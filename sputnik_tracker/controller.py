@@ -43,7 +43,7 @@ class Controller:
         self._sync_lock = threading.Lock()   # one Spotify sync at a time
         self._state_lock = threading.Lock()
         self._state = {"last_track": None, "tracks": 0, "in_playlist": 0,
-                       "playlist_id": None, "message": ""}
+                       "playlist_id": None, "message": "", "recent": []}
         self._refresh(Store(self.db_path), close=True)
 
     # --- listening --------------------------------------------------------
@@ -154,6 +154,7 @@ class Controller:
             tracks=stats["tracks"],
             in_playlist=stats["in_playlist"],
             playlist_id=store.get_setting("spotify_playlist_id"),
+            recent=store.recent_plays(),
         )
         if close:
             store.close()

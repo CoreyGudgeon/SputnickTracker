@@ -70,3 +70,20 @@ def test_parse_shazam():
                      "url": "https://www.shazam.com/track/42"}}
     assert parse_shazam(hit) == Match("42", "Someone", "Song", "X1",
                                       "https://www.shazam.com/track/42")
+
+
+def test_recent_plays_show_spotify_status_newest_first():
+    store = Store(":memory:")
+    t0 = datetime(2026, 11, 15, 20, 0, tzinfo=timezone.utc)
+    for i, key in enumerate(["a", "b", "c", "d"]):
+        store.record_match(Match(key, f"Artist {key}", f"Title {key}"), t0 + timedelta(minutes=20 * i))
+    store.save_spotify_lookup("a", "spotify:track:a", "isrc")
+    store.mark_added(["a"])
+    store.save_spotify_lookup("b", "spotify:track:b", "search")   # found, not added yet
+    store.save_spotify_lookup("c", None, None)                    # Spotify does not have it
+
+    recent = store.recent_plays(limit=3)
+    assert [(r["title"], r["status"]) for r in recent] == [
+        ("Title d", "unchecked"), ("Title c", "missing"), ("Title b", "queued")]
+    assert recent[0]["heard"] == "2026-11-15T21:00:00+00:00"
+    assert store.recent_plays()[-1]["status"] == "synced"
