@@ -41,10 +41,12 @@ def run_app(db: str, stream_url: str) -> None:
         pass
 
     controller = Controller(db_path, stream_url, ShazamRecognizer)
+    log = logging.getLogger("sputnik")
 
     class TrackerApp(rumps.App):
         def __init__(self):
             super().__init__(APP_NAME, title="Sputnik", quit_button=None)
+            self.panel = None
             self.toggle = rumps.MenuItem("Listening", callback=self.on_toggle)
             self.track = rumps.MenuItem("Nothing identified yet")
             # rumps keys the menu by each item's first title, so these must differ.
@@ -52,6 +54,7 @@ def run_app(db: str, stream_url: str) -> None:
             self.message = rumps.MenuItem("Starting...")
             self.menu = [
                 self.toggle, None,
+                rumps.MenuItem("Open Control Desk", callback=self.on_show_panel), None,
                 self.track, self.counts, self.message, None,
                 rumps.MenuItem("Open Spotify Playlist", callback=self.on_open_playlist),
                 rumps.MenuItem("Sync to Spotify Now", callback=self.on_sync),
@@ -60,11 +63,36 @@ def run_app(db: str, stream_url: str) -> None:
             ]
             controller.start()  # listening is on whenever the app is open, until switched off
             self.refresh(None)
-            self.timer = rumps.Timer(self.refresh, 5)
+            self.timer = rumps.Timer(self.refresh, 2)
             self.timer.start()
+            # The window can only be made once the app is running.
+            self.opener = rumps.Timer(self.open_on_start, 0.5)
+            self.opener.start()
+
+        def open_on_start(self, _):
+            self.opener.stop()
+            self.on_show_panel(None)
+
+        def on_show_panel(self, _):
+            if self.panel is None:
+                try:
+                    from .panel import Panel
+                    self.panel = Panel({"toggle": lambda: self.on_toggle(None),
+                                        "sync": lambda: self.on_sync(None),
+                                        "playlist": lambda: self.on_open_playlist(None)})
+                except Exception as exc:
+                    log.warning("Control desk unavailable: %s", exc)
+                    rumps.alert("Control desk unavailable",
+                                "Run this in Terminal, then reopen the app:\n"
+                                "cd ~/SputnickTracker && .venv/bin/pip install -r requirements.txt")
+                    return
+            self.panel.update(controller.snapshot())
+            self.panel.show()
 
         def refresh(self, _):
             state = controller.snapshot()
+            if self.panel is not None:
+                self.panel.update(state)
             self.toggle.state = 1 if state["listening"] else 0
             self.title = "Sputnik ●" if state["listening"] else "Sputnik ○"
             self.track.title = (f"Last: {state['last_track']}" if state["last_track"]
@@ -147,6 +175,7 @@ def install(db: str, stream_url: str) -> Path:
         raise ServiceError("the app is only available on macOS")
     try:
         import rumps  # noqa: F401
+        import WebKit  # noqa: F401  (the control desk window)
     except ImportError as exc:
         raise ServiceError("the menu bar library is missing - run: "
                            ".venv/bin/pip install -r requirements.txt") from exc
