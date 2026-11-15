@@ -12,35 +12,48 @@ DEFAULT_DB = "data/sputnik.db"
 
 
 def _auto_sync(store: Store, db_path: str, every_minutes: int):
-    """Build the listener's periodic Spotify sync, or None when sync is off or
-    has not been set up. Failures are logged and never stop the listener."""
+    """Build the listener's periodic playlist sync (Spotify and Tidal,
+    whichever are set up), or None when sync is off or neither is set up.
+    Failures are logged and never stop the listener."""
     import time
     from pathlib import Path
 
     client_id = store.get_setting("spotify_client_id")
-    if every_minutes <= 0 or not client_id:
+    tidal_session = Path(db_path).with_name("tidal-session.json")
+    if every_minutes <= 0 or not (client_id or tidal_session.exists()):
         return None
-    from .spotify import SpotifyAPI, sync
 
     log = logging.getLogger("sputnik")
-    api = SpotifyAPI(client_id, Path(db_path).with_name("spotify-token.json"), interactive=False)
     state = {"next": time.monotonic() + 120}  # first sync shortly after start
+
+    def report(name, result) -> None:
+        for label in result.added:
+            log.info("%s added %s", name, label)
+        for label in result.not_found:
+            log.info("%s does not have %s", name, label)
 
     def tick() -> None:
         if time.monotonic() < state["next"]:
             return
         state["next"] = time.monotonic() + every_minutes * 60
-        try:
-            result = sync(store, api)
-        except Exception as exc:
-            log.warning("Spotify sync failed: %s", exc)
-            return
-        for label in result.added:
-            log.info("SPOTIFY added %s", label)
-        for label in result.not_found:
-            log.info("SPOTIFY does not have %s", label)
+        if client_id:
+            from .spotify import SpotifyAPI, sync
+            try:
+                api = SpotifyAPI(client_id, Path(db_path).with_name("spotify-token.json"),
+                                 interactive=False)
+                report("SPOTIFY", sync(store, api))
+            except Exception as exc:
+                log.warning("Spotify sync failed: %s", exc)
+        if tidal_session.exists():
+            from .tidal import TidalClient, sync as tidal_sync
+            try:
+                report("TIDAL", tidal_sync(store, TidalClient(tidal_session, interactive=False)))
+            except Exception as exc:
+                log.warning("Tidal sync failed: %s", exc)
 
-    log.info("Spotify sync is on (every %s minutes)", every_minutes)
+    services = " and ".join(n for n, on in (("Spotify", client_id),
+                                            ("Tidal", tidal_session.exists())) if on)
+    log.info("%s sync is on (every %s minutes)", services, every_minutes)
     return tick
 
 

@@ -137,9 +137,11 @@ log in to Tidal and approve, and the login is remembered.
 
 It takes the same options as `sync` (`--dry-run`, `--min-hits N`,
 `--retry-missing`, `--playlist NAME`) and keeps its own record, separate from
-Spotify's. Tracks are added in the order they were first heard. Tidal sync is
-manual: the app and `listen` only sync to Spotify automatically, so run this
-command whenever you want the Tidal playlist brought up to date.
+Spotify's. Tracks are added in the order they were first heard.
+
+Once you have signed in this way, the app and `listen` sync to Tidal
+automatically every 15 minutes, alongside Spotify. Quit and reopen the app
+after the first sign-in so it picks the login up.
 
 
 

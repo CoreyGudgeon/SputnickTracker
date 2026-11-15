@@ -55,6 +55,8 @@ class TidalClient:
         else:
             self.session.load_session_from_file(session_file)
             ok = self.session.check_login()
+            if ok:  # keep any refreshed token for the next run
+                self.session.save_session_to_file(session_file)
         if not ok:
             raise TidalError("not signed in to Tidal - run the tidal-sync command in Terminal")
 

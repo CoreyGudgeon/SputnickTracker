@@ -40,10 +40,11 @@ def wait_for(condition, timeout=5.0):
     return False
 
 
-def make(tmp_path, spotify=None):
+def make(tmp_path, spotify=None, tidal=None):
     return Controller(tmp_path / "t.db", "http://example/stream",
                       lambda: Always(Match("1", "Artist A", "Track A", isrc="X1")),
                       interval=0, spotify_factory=lambda client_id: spotify,
+                      tidal_factory=lambda: tidal,
                       capture=lambda: b"wav")
 
 
@@ -123,3 +124,57 @@ def test_only_one_copy_of_the_app_runs(tmp_path):
     again = claim_single_instance(lock_path)
     assert not isinstance(again, int)
     again.close()
+
+
+class FakeTidal:
+    def __init__(self, broken=False):
+        self.added, self.broken = [], broken
+
+    def find(self, artist, title, isrc):
+        return ("77", "isrc")
+
+    def create_playlist(self, name):
+        if self.broken:
+            raise RuntimeError("tidal is down")
+        return "tpl1"
+
+    def add_to_playlist(self, playlist_id, track_ids):
+        self.added += track_ids
+
+
+def one_track(tmp_path, spotify=True):
+    from datetime import datetime, timezone
+    store = Store(tmp_path / "t.db")
+    if spotify:
+        store.set_setting("spotify_client_id", "client")
+    store.record_match(Match("1", "Artist A", "Track A", isrc="X1"), datetime.now(timezone.utc))
+
+
+def test_sync_goes_to_spotify_and_tidal(tmp_path):
+    spotify, tidal = FakeSpotify(), FakeTidal()
+    c = make(tmp_path, spotify, tidal)
+    one_track(tmp_path)
+    c.sync_now().join(timeout=5)
+    assert spotify.added == ["spotify:track:a"] and tidal.added == ["77"]
+    assert c.snapshot()["message"] == "Last sync: Spotify +1, Tidal +1"
+    c.sync_now().join(timeout=5)                      # nothing is added twice
+    assert spotify.added == ["spotify:track:a"] and tidal.added == ["77"]
+    assert c.snapshot()["message"] == "Last sync: Spotify +0, Tidal +0"
+
+
+def test_tidal_failure_does_not_block_spotify(tmp_path):
+    spotify = FakeSpotify()
+    c = make(tmp_path, spotify, FakeTidal(broken=True))
+    one_track(tmp_path)
+    c.sync_now().join(timeout=5)
+    assert spotify.added == ["spotify:track:a"]
+    assert c.snapshot()["message"] == "Last sync: Spotify +1, Tidal failed"
+
+
+def test_tidal_alone_syncs_without_spotify(tmp_path):
+    tidal = FakeTidal()
+    c = make(tmp_path, None, tidal)
+    one_track(tmp_path, spotify=False)
+    c.sync_now().join(timeout=5)
+    assert tidal.added == ["77"]
+    assert c.snapshot()["message"] == "Last sync: Tidal +1"

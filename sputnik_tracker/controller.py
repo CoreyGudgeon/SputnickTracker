@@ -28,6 +28,7 @@ class Controller:
         interval: int = 60,
         sync_every_minutes: int = 15,
         spotify_factory: Callable[[str], object] | None = None,
+        tidal_factory: Callable[[], object | None] | None = None,
         capture: Callable[[], bytes] | None = None,
     ):
         self.db_path = Path(db_path)
@@ -36,11 +37,12 @@ class Controller:
         self._interval = interval
         self._sync_every = sync_every_minutes * 60
         self._spotify_factory = spotify_factory or self._default_spotify
+        self._tidal_factory = tidal_factory or self._default_tidal
         self._capture = capture
         self._stop: threading.Event | None = None
         self._thread: threading.Thread | None = None
         self._awake: subprocess.Popen | None = None
-        self._sync_lock = threading.Lock()   # one Spotify sync at a time
+        self._sync_lock = threading.Lock()   # one playlist sync at a time
         self._state_lock = threading.Lock()
         self._state = {"last_track": None, "tracks": 0, "in_playlist": 0,
                        "playlist_id": None, "message": "", "recent": []}
@@ -105,26 +107,75 @@ class Controller:
         return SpotifyAPI(client_id, self.db_path.with_name("spotify-token.json"),
                           interactive=False)
 
+    def _default_tidal(self):
+        """A signed-in Tidal client, or None when Tidal has not been set up
+        (no login saved by the tidal-sync command)."""
+        session_file = self.db_path.with_name("tidal-session.json")
+        if not session_file.exists():
+            return None
+        from .tidal import TidalClient
+
+        return TidalClient(session_file, interactive=False)
+
     def _sync(self, store: Store) -> None:
+        """Sync to Spotify and to Tidal, whichever are set up. A failure in
+        one does not hold back the other."""
+        with self._sync_lock:
+            spotify = self._sync_spotify(store)
+            tidal = self._sync_tidal(store)
+        if tidal is None:  # Tidal not set up: report on Spotify alone
+            if spotify is None:
+                message = "Spotify is not set up yet"
+            elif isinstance(spotify, int):
+                message = f"Last sync added {spotify} track{'' if spotify == 1 else 's'}"
+            else:
+                message = f"Spotify sync failed: {spotify}"
+        else:
+            def part(name, outcome):
+                if outcome is None:
+                    return None
+                return f"{name} +{outcome}" if isinstance(outcome, int) else f"{name} failed"
+            parts = [p for p in (part("Spotify", spotify), part("Tidal", tidal)) if p]
+            message = "Last sync: " + ", ".join(parts)
+        self._set(message=message)
+
+    def _sync_spotify(self, store: Store) -> int | str | None:
+        """Tracks added, an error message, or None when Spotify is not set up."""
         from .spotify import sync
 
         client_id = store.get_setting("spotify_client_id")
         if not client_id:
-            self._set(message="Spotify is not set up yet")
-            return
-        with self._sync_lock:
-            try:
-                result = sync(store, self._spotify_factory(client_id))
-            except Exception as exc:
-                log.warning("Spotify sync failed: %s", exc)
-                self._set(message=f"Spotify sync failed: {exc}")
-                return
+            return None
+        try:
+            result = sync(store, self._spotify_factory(client_id))
+        except Exception as exc:
+            log.warning("Spotify sync failed: %s", exc)
+            return str(exc)
         for label in result.added:
             log.info("SPOTIFY added %s", label)
         for label in result.not_found:
             log.info("SPOTIFY does not have %s", label)
-        self._set(message=f"Last sync added {len(result.added)} "
-                          f"track{'' if len(result.added) == 1 else 's'}")
+        return len(result.added)
+
+    def _sync_tidal(self, store: Store) -> int | str | None:
+        """Tracks added, an error message, or None when Tidal is not set up."""
+        from .tidal import sync
+
+        try:
+            client = self._tidal_factory()
+            if client is None:
+                return None
+            result = sync(store, client)
+        except Exception as exc:
+            log.warning("Tidal sync failed: %s", exc)
+            return str(exc)
+        for label in result.added:
+            log.info("TIDAL added %s", label)
+        for label in result.not_found:
+            log.info("TIDAL does not have %s", label)
+        if result.stopped_early:
+            log.warning("Tidal sync stopped early: %s", result.stopped_early)
+        return len(result.added)
 
     def sync_now(self) -> threading.Thread:
         """Sync in the background; the outcome shows up in snapshot()['message']."""
@@ -136,7 +187,7 @@ class Controller:
             finally:
                 store.close()
 
-        self._set(message="Syncing to Spotify...")
+        self._set(message="Syncing playlists...")
         thread = threading.Thread(target=job, daemon=True)
         thread.start()
         return thread
