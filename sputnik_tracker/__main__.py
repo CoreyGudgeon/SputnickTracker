@@ -11,6 +11,39 @@ DEFAULT_STREAM = "http://radiosputnik.nl:8002/sputnik"
 DEFAULT_DB = "data/sputnik.db"
 
 
+def _auto_sync(store: Store, db_path: str, every_minutes: int):
+    """Build the listener's periodic Spotify sync, or None when sync is off or
+    has not been set up. Failures are logged and never stop the listener."""
+    import time
+    from pathlib import Path
+
+    client_id = store.get_setting("spotify_client_id")
+    if every_minutes <= 0 or not client_id:
+        return None
+    from .spotify import SpotifyAPI, sync
+
+    log = logging.getLogger("sputnik")
+    api = SpotifyAPI(client_id, Path(db_path).with_name("spotify-token.json"), interactive=False)
+    state = {"next": time.monotonic() + 120}  # first sync shortly after start
+
+    def tick() -> None:
+        if time.monotonic() < state["next"]:
+            return
+        state["next"] = time.monotonic() + every_minutes * 60
+        try:
+            result = sync(store, api)
+        except Exception as exc:
+            log.warning("Spotify sync failed: %s", exc)
+            return
+        for label in result.added:
+            log.info("SPOTIFY added %s", label)
+        for label in result.not_found:
+            log.info("SPOTIFY does not have %s", label)
+
+    log.info("Spotify sync is on (every %s minutes)", every_minutes)
+    return tick
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="sputnik_tracker", description=__doc__)
     parser.add_argument("--db", default=DEFAULT_DB, help=f"database file (default: {DEFAULT_DB})")
@@ -21,6 +54,10 @@ def main(argv: list[str] | None = None) -> int:
     listen.add_argument("--interval", type=int, default=60, help="seconds between clips")
     listen.add_argument("--clip", type=int, default=12, help="clip length in seconds")
 
+    listen.add_argument("--sync-every", type=int, default=15, metavar="MINUTES",
+                        help="add new tracks to the Spotify playlist this often, once "
+                             "Spotify sync has been set up (default: 15, 0 turns it off)")
+
     tracks = sub.add_parser("tracks", help="list the unique tracks heard so far")
     tracks.add_argument("--min-hits", type=int, default=1,
                         help="only tracks matched by at least this many clips in one play "
@@ -28,6 +65,12 @@ def main(argv: list[str] | None = None) -> int:
     tracks.add_argument("--csv", metavar="FILE", help="write to a CSV file instead of the screen")
 
     sub.add_parser("stats", help="show how many clips were identified")
+
+    service = sub.add_parser("service", help="run the listener in the background (macOS)")
+    service.add_argument("action", choices=["install", "uninstall", "status"])
+    service.add_argument("--stream", default=DEFAULT_STREAM, help="stream URL")
+    service.add_argument("--allow-sleep", action="store_true",
+                         help="let the Mac go to sleep when idle (listening pauses while asleep)")
 
     sync = sub.add_parser("sync", help="add identified tracks to a Spotify playlist")
     sync.add_argument("--client-id", help="Spotify app client ID (only needed the first time)")
@@ -52,7 +95,8 @@ def main(argv: list[str] | None = None) -> int:
         for noisy in ("shazamio", "shazamio_core"):
             logging.getLogger(noisy).setLevel(logging.WARNING)
         try:
-            run(store, ShazamRecognizer(), args.stream, args.interval, args.clip)
+            run(store, ShazamRecognizer(), args.stream, args.interval, args.clip,
+                _auto_sync(store, args.db, args.sync_every))
         except KeyboardInterrupt:
             print("\nstopped")
         return 0
@@ -82,6 +126,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"failed clips:       {s['error']}")
         print(f"plays logged:       {s['plays']}")
         print(f"unique tracks:      {s['tracks']} ({s['confirmed_tracks']} matched by 2+ clips)")
+        return 0
+
+    if args.command == "service":
+        from . import service as svc
+
+        store.close()
+        try:
+            if args.action == "install":
+                log_path = svc.install(args.db, args.stream, keep_awake=not args.allow_sleep)
+                print("Listener installed. It is running now and will start whenever you log in.")
+                print(f"Log: {log_path}")
+            elif args.action == "uninstall":
+                svc.uninstall()
+                print("Listener stopped and removed. Your track log is untouched.")
+            else:
+                print(svc.status(args.db))
+        except svc.ServiceError as exc:
+            print(f"Could not {args.action} the service: {exc}")
+            return 1
         return 0
 
     if args.command == "sync":

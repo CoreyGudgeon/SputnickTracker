@@ -115,3 +115,33 @@ Options: `--dry-run` (show what would be added), `--min-hits N` (default 2),
 "Radio Sputnik").
 
 It is safe to run `sync` while `listen` is running.
+
+Once this setup is done, `listen` also syncs by itself every 15 minutes
+(`--sync-every MINUTES` to change it, `--sync-every 0` to turn it off).
+
+## Run in the background (macOS)
+
+Install the listener as a background service. It starts now, starts again
+whenever you log in, restarts if it stops, and keeps the Mac from idle-sleeping:
+
+```bash
+.venv/bin/python -m sputnik_tracker service install
+```
+
+Check on it (shows whether it is running and the latest log lines):
+
+```bash
+.venv/bin/python -m sputnik_tracker service status
+```
+
+Stop and remove it (the track log is kept):
+
+```bash
+.venv/bin/python -m sputnik_tracker service uninstall
+```
+
+The full log is in `data/listener.log`. After updating the code with
+`git pull`, run `service install` again to restart the listener on the new
+version. Add `--allow-sleep` to `service install` if you would rather let the
+Mac sleep; nothing is logged while it is asleep. Closing a MacBook's lid
+always puts it to sleep.

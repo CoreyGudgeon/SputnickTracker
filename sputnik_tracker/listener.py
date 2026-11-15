@@ -51,6 +51,7 @@ def run(
     stream_url: str,
     interval: int = 60,
     clip_seconds: int = 12,
+    after_sample: Callable[[], None] | None = None,
 ) -> None:
     """Sample forever, one clip every `interval` seconds. After repeated
     failures the wait grows (up to 10 minutes) so an outage is not hammered."""
@@ -60,5 +61,7 @@ def run(
         started = time.monotonic()
         status = sample_once(store, recognizer, lambda: capture_clip(stream_url, clip_seconds))
         failures = failures + 1 if status == "error" else 0
+        if after_sample is not None:
+            after_sample()
         wait = interval if failures < 3 else min(interval * 2 ** (failures - 2), 600)
         time.sleep(max(0.0, wait - (time.monotonic() - started)))

@@ -34,7 +34,9 @@ class SpotifyAPI:
     """Thin wrapper over the Spotify Web API. Signs in through the browser the
     first time (no client secret needed) and caches the token next to the database."""
 
-    def __init__(self, client_id: str, token_cache: Path):
+    def __init__(self, client_id: str, token_cache: Path, interactive: bool = True):
+        """With `interactive=False` (the background listener) a missing or
+        expired login raises SpotifyError instead of opening the browser."""
         from spotipy.cache_handler import CacheFileHandler
         from spotipy.oauth2 import SpotifyPKCE
 
@@ -44,12 +46,22 @@ class SpotifyAPI:
             scope=SCOPE,
             cache_handler=CacheFileHandler(cache_path=str(token_cache)),
         )
+        self._interactive = interactive
+
+    def _token(self) -> str:
+        if self._interactive:
+            return self._auth.get_access_token()
+        # validate_token refreshes an expired token but never prompts.
+        info = self._auth.validate_token(self._auth.cache_handler.get_cached_token())
+        if not info:
+            raise SpotifyError("not signed in to Spotify - run the sync command once in Terminal")
+        return info["access_token"]
 
     def _request(self, method: str, path: str, **kwargs) -> dict:
         import requests
 
         for attempt in range(4):
-            headers = {"Authorization": f"Bearer {self._auth.get_access_token()}"}
+            headers = {"Authorization": f"Bearer {self._token()}"}
             resp = requests.request(method, API + path, headers=headers, timeout=30, **kwargs)
             if resp.status_code == 429 and attempt < 3:  # rate limited: wait as told
                 time.sleep(min(int(resp.headers.get("Retry-After", "5")), 60) + 1)

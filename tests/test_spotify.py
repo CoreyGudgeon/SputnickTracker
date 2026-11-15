@@ -103,3 +103,13 @@ def test_large_sync_is_batched():
     client = FakeSpotify(hits)
     assert len(sync(store, client).added) == 230
     assert client.playlists["pl1"] == [f"spotify:track:{i}" for i in range(230)]
+
+
+def test_background_client_never_prompts_when_not_signed_in(tmp_path):
+    import pytest
+
+    from sputnik_tracker.spotify import SpotifyAPI, SpotifyError
+
+    api = SpotifyAPI("client", tmp_path / "token.json", interactive=False)
+    with pytest.raises(SpotifyError, match="not signed in"):
+        api.search_tracks("anything", 1)
