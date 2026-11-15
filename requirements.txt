@@ -2,3 +2,4 @@ shazamio>=0.9,<1.0
 spotipy>=2.25,<3.0
 rumps>=0.4,<1.0; sys_platform == "darwin"
 pyobjc-framework-WebKit>=10; sys_platform == "darwin"
+tidalapi>=0.8,<0.9

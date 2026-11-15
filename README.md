@@ -120,7 +120,28 @@ It is safe to run `sync` while `listen` is running.
 Once this setup is done, `listen` also syncs by itself every 15 minutes
 (`--sync-every MINUTES` to change it, `--sync-every 0` to turn it off).
 
-## The app (macOS)
+## Tidal playlist sync
+
+`tidal-sync` does the same for Tidal, using the unofficial
+[`tidalapi`](https://github.com/tamland/python-tidal) library. No developer
+app is needed: the first run prints a `link.tidal.com` address, you open it,
+log in to Tidal and approve, and the login is remembered.
+
+```bash
+.venv/bin/python -m sputnik_tracker tidal-sync --dry-run
+```
+
+```bash
+.venv/bin/python -m sputnik_tracker tidal-sync
+```
+
+It takes the same options as `sync` (`--dry-run`, `--min-hits N`,
+`--retry-missing`, `--playlist NAME`) and keeps its own record, separate from
+Spotify's. Tracks are added in the order they were first heard. Tidal sync is
+manual: the app and `listen` only sync to Spotify automatically, so run this
+command whenever you want the Tidal playlist brought up to date.
+
+
 
 A small app with an on/off switch for the listener. It listens while it is
 open and switched on, and stops completely when you quit it.

@@ -88,6 +88,16 @@ def main(argv: list[str] | None = None) -> int:
     sync.add_argument("--dry-run", action="store_true",
                       help="show what would be added without changing anything")
 
+    tidal = sub.add_parser("tidal-sync", help="add identified tracks to a Tidal playlist")
+    tidal.add_argument("--playlist", default="Radio Sputnik",
+                       help="name for the playlist when it is first created")
+    tidal.add_argument("--min-hits", type=int, default=1,
+                       help="only sync tracks matched by at least this many clips (default: 1)")
+    tidal.add_argument("--retry-missing", action="store_true",
+                       help="search again for tracks Tidal did not have last time")
+    tidal.add_argument("--dry-run", action="store_true",
+                       help="show what would be added without changing anything")
+
     args = parser.parse_args(argv)
     store = Store(args.db)
 
@@ -172,6 +182,26 @@ def main(argv: list[str] | None = None) -> int:
         except ServiceError as exc:
             print(f"Could not {args.action} the app: {exc}")
             return 1
+        return 0
+
+    if args.command == "tidal-sync":
+        from pathlib import Path
+
+        from .tidal import TidalClient, TidalError, sync as tidal_sync
+
+        try:
+            client = TidalClient(Path(args.db).with_name("tidal-session.json"))
+            result = tidal_sync(store, client, args.playlist, args.min_hits,
+                                args.retry_missing, args.dry_run, progress=print)
+        except TidalError as exc:
+            print(f"Tidal sync stopped: {exc}")
+            return 1
+        verb = "would add" if args.dry_run else "added"
+        print(f"{verb} {len(result.added)} tracks; {len(result.not_found)} not found on Tidal")
+        if result.stopped_early:
+            print(f"Stopped early: {result.stopped_early}. Run the command again to continue.")
+        if result.playlist_id and not args.dry_run:
+            print(f"playlist: https://tidal.com/playlist/{result.playlist_id}")
         return 0
 
     if args.command == "sync":
