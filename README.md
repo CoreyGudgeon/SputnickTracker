@@ -1,0 +1,89 @@
+# SputnikTracker
+
+Listens to [radiosputnik.nl](https://www.radiosputnik.nl/) in the background and
+logs every track it can identify, so the log can be turned into a playlist.
+
+The station does not publish what is playing, so the tracker identifies tracks
+from the audio: once a minute it records a 12-second clip of the stream with
+`ffmpeg` and looks it up on Shazam through the unofficial
+[`shazamio`](https://github.com/shazamio/ShazamIO) library. Results go into a
+local SQLite database (`data/sputnik.db`).
+
+## Setup
+
+You need Python 3.10 or newer and `ffmpeg` on your PATH.
+
+| System  | Install ffmpeg                |
+| ------- | ----------------------------- |
+| Windows | `winget install Gyan.FFmpeg`  |
+| macOS   | `brew install ffmpeg`         |
+| Linux   | `sudo apt install ffmpeg`     |
+
+Then, in this folder:
+
+```bash
+python -m venv .venv
+```
+
+```bash
+.venv/bin/pip install -r requirements.txt
+```
+
+On Windows the second command is `.venv\Scripts\pip install -r requirements.txt`,
+and `.venv/bin/python` below becomes `.venv\Scripts\python`.
+
+## Use
+
+Start listening (leave it running; Ctrl+C stops it):
+
+```bash
+.venv/bin/python -m sputnik_tracker listen
+```
+
+See what it has found:
+
+```bash
+.venv/bin/python -m sputnik_tracker tracks --min-hits 2
+```
+
+```bash
+.venv/bin/python -m sputnik_tracker stats
+```
+
+Export to a spreadsheet-friendly file:
+
+```bash
+.venv/bin/python -m sputnik_tracker tracks --min-hits 2 --csv tracks.csv
+```
+
+`--min-hits 2` keeps only tracks that two or more clips in a row agreed on,
+which filters out one-off false matches. Leave it off to see everything.
+
+Options for `listen`: `--stream URL` (default `http://radiosputnik.nl:8002/sputnik`),
+`--interval SECONDS` (default 60), `--clip SECONDS` (default 12).
+
+## How the log works
+
+- `samples`: one row per clip - matched, not matched, or failed - so `stats`
+  can report the hit rate.
+- `plays`: consecutive matches of the same track are merged into one play with
+  a start time, end time and hit count. The same track heard again more than
+  12 minutes later counts as a new play.
+
+If the stream or the network drops, the listener logs the failure and keeps
+retrying, backing off to one attempt every 10 minutes during a long outage.
+
+## Tests
+
+```bash
+.venv/bin/pip install pytest
+```
+
+```bash
+.venv/bin/python -m pytest
+```
+
+## Next
+
+- Sync identified tracks to a Spotify playlist (matched by ISRC where Shazam
+  provides one).
