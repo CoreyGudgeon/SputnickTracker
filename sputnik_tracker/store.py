@@ -33,6 +33,17 @@ CREATE TABLE IF NOT EXISTS plays (
     hits       INTEGER NOT NULL DEFAULT 1
 );
 CREATE INDEX IF NOT EXISTS plays_track ON plays (track_key, last_seen);
+CREATE TABLE IF NOT EXISTS spotify (
+    track_key   TEXT PRIMARY KEY,
+    spotify_uri TEXT,            -- NULL: looked up, not on Spotify
+    matched_by  TEXT,            -- 'isrc' or 'search'
+    checked_at  TEXT NOT NULL,
+    added_at    TEXT             -- NULL: not yet in the playlist
+);
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 # A later match of the same track within this window extends the play instead
@@ -107,6 +118,54 @@ class Store:
             "ORDER BY last_heard DESC",
             (min_hits,),
         ).fetchall()
+
+    # --- Spotify sync -----------------------------------------------------
+
+    def get_setting(self, key: str) -> str | None:
+        row = self.db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else None
+
+    def set_setting(self, key: str, value: str) -> None:
+        with self.db:
+            self.db.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) "
+                "ON CONFLICT (key) DO UPDATE SET value = excluded.value", (key, value))
+
+    def tracks_to_look_up(self, min_hits: int, retry_missing: bool = False) -> list[sqlite3.Row]:
+        """Tracks never searched for on Spotify - plus, with `retry_missing`,
+        those that were searched for and not found."""
+        looked_up = {
+            row["track_key"]: row["spotify_uri"]
+            for row in self.db.execute("SELECT track_key, spotify_uri FROM spotify")
+        }
+        return [
+            t for t in reversed(self.tracks(min_hits))  # oldest first: playlist order
+            if t["track_key"] not in looked_up
+            or (retry_missing and looked_up[t["track_key"]] is None)
+        ]
+
+    def save_spotify_lookup(self, track_key: str, uri: str | None, matched_by: str | None) -> None:
+        with self.db:
+            self.db.execute(
+                "INSERT INTO spotify (track_key, spotify_uri, matched_by, checked_at) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT (track_key) DO UPDATE SET "
+                "spotify_uri = excluded.spotify_uri, matched_by = excluded.matched_by, "
+                "checked_at = excluded.checked_at",
+                (track_key, uri, matched_by, _iso(datetime.now(timezone.utc))))
+
+    def tracks_to_add(self) -> list[sqlite3.Row]:
+        """Found on Spotify, not yet added to the playlist; oldest first."""
+        return self.db.execute(
+            "SELECT s.track_key, s.spotify_uri, p.artist, p.title, MIN(p.first_seen) AS first_heard "
+            "FROM spotify s JOIN plays p USING (track_key) "
+            "WHERE s.spotify_uri IS NOT NULL AND s.added_at IS NULL "
+            "GROUP BY s.track_key ORDER BY first_heard").fetchall()
+
+    def mark_added(self, track_keys: list[str]) -> None:
+        now = _iso(datetime.now(timezone.utc))
+        with self.db:
+            self.db.executemany("UPDATE spotify SET added_at = ? WHERE track_key = ?",
+                                [(now, key) for key in track_keys])
 
     def stats(self) -> dict[str, int]:
         counts = {"match": 0, "no_match": 0, "error": 0}

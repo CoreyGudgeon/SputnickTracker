@@ -83,7 +83,35 @@ retrying, backing off to one attempt every 10 minutes during a long outage.
 .venv/bin/python -m pytest
 ```
 
-## Next
+## Spotify playlist sync
 
-- Sync identified tracks to a Spotify playlist (matched by ISRC where Shazam
-  provides one).
+`sync` looks up each logged track on Spotify - by ISRC when Shazam supplied
+one, otherwise by artist and title - and adds the ones it finds to a private
+playlist. Lookups are remembered, so running it again only handles new tracks.
+
+One-time setup:
+
+1. Go to <https://developer.spotify.com/dashboard>, log in and choose
+   **Create app**.
+2. Give it any name and description. Under **Redirect URIs** add exactly
+   `http://127.0.0.1:8888/callback`. Tick **Web API** and save.
+3. Open the app's settings and copy the **Client ID**.
+
+First sync (opens your browser to approve access):
+
+```bash
+.venv/bin/python -m sputnik_tracker sync --client-id YOUR_CLIENT_ID
+```
+
+After that, the client ID and login are remembered:
+
+```bash
+.venv/bin/python -m sputnik_tracker sync
+```
+
+Options: `--dry-run` (show what would be added), `--min-hits N` (default 2),
+`--retry-missing` (search again for tracks Spotify did not have),
+`--playlist NAME` (name used when the playlist is first created; default
+"Radio Sputnik").
+
+It is safe to run `sync` while `listen` is running.

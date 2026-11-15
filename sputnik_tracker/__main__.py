@@ -29,6 +29,17 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("stats", help="show how many clips were identified")
 
+    sync = sub.add_parser("sync", help="add identified tracks to a Spotify playlist")
+    sync.add_argument("--client-id", help="Spotify app client ID (only needed the first time)")
+    sync.add_argument("--playlist", default="Radio Sputnik",
+                      help="name for the playlist when it is first created")
+    sync.add_argument("--min-hits", type=int, default=2,
+                      help="only sync tracks matched by at least this many clips (default: 2)")
+    sync.add_argument("--retry-missing", action="store_true",
+                      help="search again for tracks Spotify did not have last time")
+    sync.add_argument("--dry-run", action="store_true",
+                      help="show what would be added without changing anything")
+
     args = parser.parse_args(argv)
     store = Store(args.db)
 
@@ -71,6 +82,34 @@ def main(argv: list[str] | None = None) -> int:
         print(f"failed clips:       {s['error']}")
         print(f"plays logged:       {s['plays']}")
         print(f"unique tracks:      {s['tracks']} ({s['confirmed_tracks']} matched by 2+ clips)")
+        return 0
+
+    if args.command == "sync":
+        from pathlib import Path
+
+        from .spotify import SpotifyAPI, SpotifyError, sync as run_sync
+
+        if args.client_id:
+            store.set_setting("spotify_client_id", args.client_id.strip())
+        client_id = store.get_setting("spotify_client_id")
+        if not client_id:
+            print("First run: pass your Spotify app's client ID with --client-id (see README).")
+            return 2
+        api = SpotifyAPI(client_id, Path(args.db).with_name("spotify-token.json"))
+        try:
+            result = run_sync(store, api, args.playlist, args.min_hits,
+                              args.retry_missing, args.dry_run)
+        except SpotifyError as exc:
+            print(f"Sync stopped: {exc}")
+            return 1
+        verb = "would add" if args.dry_run else "added"
+        for label in result.added:
+            print(f"  + {label}")
+        for label in result.not_found:
+            print(f"  ? not on Spotify: {label}")
+        print(f"{verb} {len(result.added)} tracks; {len(result.not_found)} not found on Spotify")
+        if result.playlist_id and not args.dry_run:
+            print(f"playlist: https://open.spotify.com/playlist/{result.playlist_id}")
         return 0
 
     return 1
