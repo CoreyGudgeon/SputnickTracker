@@ -107,3 +107,18 @@ def test_bundle_launcher_runs_the_app_command(tmp_path):
     assert Path(cwd) == project
     assert path.startswith("/opt/homebrew/bin:")
     assert argv == f"-m sputnik_tracker --db {project}/data/s.db app run --stream http://example/stream"
+
+
+def test_only_one_copy_of_the_app_runs(tmp_path):
+    import os
+
+    from sputnik_tracker.app import claim_single_instance
+
+    lock_path = tmp_path / "app.lock"
+    first = claim_single_instance(lock_path)
+    assert not isinstance(first, int)
+    assert claim_single_instance(lock_path) == os.getpid()   # second copy is told who runs
+    first.close()                                            # first copy quits
+    again = claim_single_instance(lock_path)
+    assert not isinstance(again, int)
+    again.close()

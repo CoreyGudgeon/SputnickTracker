@@ -17,13 +17,35 @@ BUNDLE_ID = "nl.radiosputnik.tracker.app"
 ICON = Path(__file__).resolve().parent / "assets" / "AppIcon.icns"
 
 
+# --- one copy at a time ----------------------------------------------------
+
+def claim_single_instance(lock_path: Path):
+    """Lock `lock_path` for this process. Returns the open lock file (keep it
+    open for as long as the app runs), or the running copy's process ID as an
+    int when another copy already holds the lock."""
+    import fcntl
+    import os
+
+    lock = open(lock_path, "a+")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        lock.seek(0)
+        holder = lock.read().strip()
+        lock.close()
+        return int(holder) if holder.isdigit() else 0
+    lock.seek(0)
+    lock.truncate()
+    lock.write(str(os.getpid()))
+    lock.flush()
+    return lock
+
+
 # --- the app itself ------------------------------------------------------
 
 def run_app(db: str, stream_url: str) -> None:
-    import rumps
-
-    from .controller import Controller
-    from .recognizer import ShazamRecognizer
+    import os
+    import signal
 
     db_path = Path(db).resolve()
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,6 +55,26 @@ def run_app(db: str, stream_url: str) -> None:
     )
     for noisy in ("shazamio", "shazamio_core"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+    log = logging.getLogger("sputnik")
+
+    # Opening the app again while it runs brings its control desk forward
+    # instead of starting a second listener.
+    lock = claim_single_instance(db_path.with_name("app.lock"))
+    if isinstance(lock, int):
+        log.info("APP already running (pid %s) - showing its control desk", lock or "?")
+        if lock:
+            try:
+                os.kill(lock, signal.SIGUSR1)
+            except OSError:
+                pass
+        return
+    show_requested = []
+    signal.signal(signal.SIGUSR1, lambda *_: show_requested.append(True))
+
+    import rumps
+
+    from .controller import Controller
+    from .recognizer import ShazamRecognizer
 
     try:  # menu bar only: no Dock icon
         from AppKit import NSBundle
@@ -41,7 +83,7 @@ def run_app(db: str, stream_url: str) -> None:
         pass
 
     controller = Controller(db_path, stream_url, ShazamRecognizer)
-    log = logging.getLogger("sputnik")
+    log.info("APP started (pid %s)", os.getpid())
 
     class TrackerApp(rumps.App):
         def __init__(self):
@@ -71,6 +113,11 @@ def run_app(db: str, stream_url: str) -> None:
 
         def open_on_start(self, _):
             self.opener.stop()
+            try:  # rumps keeps the status item on its app delegate
+                item = self._nsapp.nsstatusitem
+                log.info("APP menu bar item created (visible: %s)", bool(item.isVisible()))
+            except Exception as exc:
+                log.warning("APP menu bar item missing: %s", exc)
             self.on_show_panel(None)
 
         def on_show_panel(self, _):
@@ -86,10 +133,14 @@ def run_app(db: str, stream_url: str) -> None:
                                 "Run this in Terminal, then reopen the app:\n"
                                 "cd ~/SputnickTracker && .venv/bin/pip install -r requirements.txt")
                     return
+                log.info("APP control desk opened")
             self.panel.update(controller.snapshot())
             self.panel.show()
 
         def refresh(self, _):
+            if show_requested:  # the app was opened again
+                show_requested.clear()
+                self.on_show_panel(None)
             state = controller.snapshot()
             if self.panel is not None:
                 self.panel.update(state)
