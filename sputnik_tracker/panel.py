@@ -49,13 +49,16 @@ def _bridge_class():
             def userContentController_didReceiveScriptMessage_(self, controller, message):
                 self.on_message(str(message.body()))
 
+            def windowWillClose_(self, notification):  # NSWindowDelegate
+                self.on_message("close")
+
         _bridge = SputnikDeskBridge
     return _bridge
 
 
 class Panel:
-    """The desk window. Create it once the app is running; closing the window
-    only hides it, and show() brings it back."""
+    """The desk window. Create it once the app is running. Closing the window
+    reports a "close" action, which the app treats as Quit."""
 
     def __init__(self, handlers: dict[str, Callable[[], None]]):
         from AppKit import (NSBackingStoreBuffered, NSWindow, NSWindowStyleMaskClosable,
@@ -81,6 +84,7 @@ class Panel:
         self.window.setTitle_(TITLE)
         self.window.setReleasedWhenClosed_(False)
         self.window.setContentView_(self.web)
+        self.window.setDelegate_(self._bridge)
         self.window.center()
 
         url = NSURL.fileURLWithPath_(str(PAGE))

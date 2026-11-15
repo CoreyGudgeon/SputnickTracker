@@ -120,7 +120,7 @@ It is safe to run `sync` while `listen` is running.
 Once this setup is done, `listen` also syncs by itself every 15 minutes
 (`--sync-every MINUTES` to change it, `--sync-every 0` to turn it off).
 
-## Menu bar app (macOS)
+## The app (macOS)
 
 A small app with an on/off switch for the listener. It listens while it is
 open and switched on, and stops completely when you quit it.
@@ -139,12 +139,15 @@ Open it from Spotlight or Finder. It opens the TeknoRadio control desk, a
 window with a big **СЛУШАТЬ / LISTEN** switch (also the space bar), the track
 counts, a log of the last six tracks with a lamp for each showing whether it
 is in the Spotify playlist (green), found but not added yet (amber), not on
-Spotify (red) or not checked yet (dark), and Sync and Playlist buttons. Closing the window keeps
-the app running; reopen it with **Open Control Desk** in the menu. It shows **Sputnik ●** in the menu bar while
-listening and **Sputnik ○** when switched off; the menu has the **Listening**
-switch, the last track, counts, **Open Spotify Playlist**, **Sync to Spotify
-Now**, **Show Log** and **Quit**. While listening it keeps the Mac from
-idle-sleeping and syncs to Spotify every 15 minutes.
+Spotify (red) or not checked yet (dark), and Sync and Playlist buttons.
+
+The app has a Dock icon while it runs. Quit it with Cmd+Q, from the Dock, or
+by closing the window; minimise or hide (Cmd+H) the window to keep listening
+out of sight. While listening it keeps the Mac from idle-sleeping and syncs to
+Spotify every 15 minutes.
+
+It also creates a **Sputnik ●** menu bar item with the same controls, but
+macOS 26 does not draw it for an app started this way, so do not rely on it.
 
 The app runs the code in this folder, so do not move or delete the folder.
 After `git pull`, quit and reopen the app. Remove it with

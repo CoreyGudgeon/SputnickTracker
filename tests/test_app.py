@@ -99,7 +99,8 @@ def test_bundle_launcher_runs_the_app_command(tmp_path):
                  "http://example/stream", "/opt/homebrew/bin")
 
     info = plistlib.loads((target / "Contents" / "Info.plist").read_bytes())
-    assert info["CFBundleExecutable"] == "launcher" and info["LSUIElement"] is True
+    assert info["CFBundleExecutable"] == "launcher"
+    assert "LSUIElement" not in info   # a Dock app, so it can always be quit
     icon = target / "Contents" / "Resources" / f"{info['CFBundleIconFile']}.icns"
     assert icon.read_bytes()[:4] == b"icns"
     subprocess.run([str(target / "Contents" / "MacOS" / "launcher")], check=True)

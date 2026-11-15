@@ -1,5 +1,10 @@
-"""The macOS menu bar app: a switch for the listener, the latest track, and
-shortcuts to the playlist. Quitting the app stops listening."""
+"""The macOS app: a control desk window with a switch for the listener, plus
+a menu bar item with the same controls. Quitting the app (Cmd+Q, the Dock, or
+closing the window) stops listening.
+
+The app is an ordinary Dock app, not menu bar only: macOS 26 does not draw
+the menu bar item of a Python process started this way, so the window and the
+Dock icon have to be enough to control and quit it."""
 
 from __future__ import annotations
 
@@ -76,9 +81,9 @@ def run_app(db: str, stream_url: str) -> None:
     from .controller import Controller
     from .recognizer import ShazamRecognizer
 
-    try:  # menu bar only: no Dock icon
+    try:  # the process is Python's own app; give its menus this app's name
         from AppKit import NSBundle
-        NSBundle.mainBundle().infoDictionary()["LSUIElement"] = "1"
+        NSBundle.mainBundle().infoDictionary()["CFBundleName"] = APP_NAME
     except Exception:
         pass
 
@@ -130,7 +135,31 @@ def run_app(db: str, stream_url: str) -> None:
                          bool(item.isVisible()), str(item.button().title()))
             except Exception as exc:
                 log.warning("APP menu bar item missing: %s", exc)
+            self.make_dock_app()
             self.on_show_panel(None)
+
+        def make_dock_app(self):
+            """Show a Dock icon and give the app a Quit menu, so it can be
+            controlled and quit even when the menu bar item is not drawn."""
+            try:
+                from AppKit import NSApplication, NSImage, NSMenu, NSMenuItem
+
+                nsapp = NSApplication.sharedApplication()
+                nsapp.setActivationPolicy_(0)  # NSApplicationActivationPolicyRegular
+                icon = NSImage.alloc().initWithContentsOfFile_(str(ICON))
+                if icon is not None:
+                    nsapp.setApplicationIconImage_(icon)
+                main_menu = NSMenu.alloc().init()
+                app_item = NSMenuItem.alloc().init()
+                main_menu.addItem_(app_item)
+                app_menu = NSMenu.alloc().init()
+                app_menu.addItemWithTitle_action_keyEquivalent_(f"Hide {APP_NAME}", "hide:", "h")
+                app_menu.addItemWithTitle_action_keyEquivalent_(f"Quit {APP_NAME}", "terminate:", "q")
+                app_item.setSubmenu_(app_menu)
+                nsapp.setMainMenu_(main_menu)
+                log.info("APP Dock icon and Quit menu set up")
+            except Exception as exc:
+                log.warning("APP could not set up the Dock icon and Quit menu: %s", exc)
 
         def on_show_panel(self, _):
             if self.panel is None:
@@ -138,7 +167,8 @@ def run_app(db: str, stream_url: str) -> None:
                     from .panel import Panel
                     self.panel = Panel({"toggle": lambda: self.on_toggle(None),
                                         "sync": lambda: self.on_sync(None),
-                                        "playlist": lambda: self.on_open_playlist(None)})
+                                        "playlist": lambda: self.on_open_playlist(None),
+                                        "close": lambda: self.on_quit(None)})
                 except Exception as exc:
                     log.warning("Control desk unavailable: %s", exc)
                     rumps.alert("Control desk unavailable",
@@ -184,6 +214,10 @@ def run_app(db: str, stream_url: str) -> None:
             subprocess.run(["open", "-a", "Console", str(db_path.with_name("listener.log"))])
 
         def on_quit(self, _):
+            if getattr(self, "quitting", False):  # closing the window while quitting
+                return
+            self.quitting = True
+            log.info("APP quitting")
             controller.stop()
             rumps.quit_application()
 
@@ -219,7 +253,6 @@ def build_bundle(target: Path, python: str, project_dir: Path, db_path: Path,
             "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": "1.0",
             "CFBundleVersion": "1",
-            "LSUIElement": True,
         }, fh)
     launcher = macos / "launcher"
     launcher.write_text(
