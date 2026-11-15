@@ -120,7 +120,34 @@ It is safe to run `sync` while `listen` is running.
 Once this setup is done, `listen` also syncs by itself every 15 minutes
 (`--sync-every MINUTES` to change it, `--sync-every 0` to turn it off).
 
-## Run in the background (macOS)
+## Menu bar app (macOS)
+
+A small app with an on/off switch for the listener. It listens while it is
+open and switched on, and stops completely when you quit it.
+
+```bash
+.venv/bin/pip install -r requirements.txt
+```
+
+```bash
+.venv/bin/python -m sputnik_tracker app install
+```
+
+That creates `Sputnik Tracker.app` in the Applications folder inside your home
+folder (and removes the always-on background service below, if installed).
+Open it from Spotlight or Finder. It shows **Sputnik ●** in the menu bar while
+listening and **Sputnik ○** when switched off; the menu has the **Listening**
+switch, the last track, counts, **Open Spotify Playlist**, **Sync to Spotify
+Now**, **Show Log** and **Quit**. While listening it keeps the Mac from
+idle-sleeping and syncs to Spotify every 15 minutes.
+
+The app runs the code in this folder, so do not move or delete the folder.
+After `git pull`, quit and reopen the app. Remove it with
+`.venv/bin/python -m sputnik_tracker app uninstall`.
+
+## Always-on background service (macOS)
+
+An alternative to the app: no switch, runs whenever you are logged in.
 
 Install the listener as a background service. It starts now, starts again
 whenever you log in, restarts if it stops, and keeps the Mac from idle-sleeping:

@@ -167,6 +167,11 @@ class Store:
             self.db.executemany("UPDATE spotify SET added_at = ? WHERE track_key = ?",
                                 [(now, key) for key in track_keys])
 
+    def latest_play(self) -> sqlite3.Row | None:
+        return self.db.execute(
+            "SELECT artist, title, last_seen FROM plays ORDER BY last_seen DESC, id DESC LIMIT 1"
+        ).fetchone()
+
     def stats(self) -> dict[str, int]:
         counts = {"match": 0, "no_match": 0, "error": 0}
         for row in self.db.execute("SELECT status, COUNT(*) AS n FROM samples GROUP BY status"):
@@ -174,6 +179,9 @@ class Store:
         counts["plays"] = self.db.execute("SELECT COUNT(*) FROM plays").fetchone()[0]
         counts["tracks"] = self.db.execute(
             "SELECT COUNT(DISTINCT track_key) FROM plays"
+        ).fetchone()[0]
+        counts["in_playlist"] = self.db.execute(
+            "SELECT COUNT(*) FROM spotify WHERE added_at IS NOT NULL"
         ).fetchone()[0]
         counts["confirmed_tracks"] = len(self.tracks(min_hits=2))
         return counts

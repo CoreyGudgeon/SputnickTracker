@@ -72,6 +72,10 @@ def main(argv: list[str] | None = None) -> int:
     service.add_argument("--allow-sleep", action="store_true",
                          help="let the Mac go to sleep when idle (listening pauses while asleep)")
 
+    app = sub.add_parser("app", help="the macOS menu bar app")
+    app.add_argument("action", choices=["install", "uninstall", "run"])
+    app.add_argument("--stream", default=DEFAULT_STREAM, help="stream URL")
+
     sync = sub.add_parser("sync", help="add identified tracks to a Spotify playlist")
     sync.add_argument("--client-id", help="Spotify app client ID (only needed the first time)")
     sync.add_argument("--playlist", default="Radio Sputnik",
@@ -145,6 +149,28 @@ def main(argv: list[str] | None = None) -> int:
                 print(svc.status(args.db))
         except svc.ServiceError as exc:
             print(f"Could not {args.action} the service: {exc}")
+            return 1
+        return 0
+
+    if args.command == "app":
+        from . import app as tracker_app
+        from .service import ServiceError
+
+        store.close()
+        if args.action == "run":
+            tracker_app.run_app(args.db, args.stream)
+            return 0
+        try:
+            if args.action == "install":
+                path = tracker_app.install(args.db, args.stream)
+                print(f"Installed {path}")
+                print("The always-on background service has been removed; "
+                      "the app now controls listening.")
+            else:
+                tracker_app.uninstall()
+                print("App removed. Your track log is untouched.")
+        except ServiceError as exc:
+            print(f"Could not {args.action} the app: {exc}")
             return 1
         return 0
 
