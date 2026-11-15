@@ -100,6 +100,8 @@ def test_bundle_launcher_runs_the_app_command(tmp_path):
 
     info = plistlib.loads((target / "Contents" / "Info.plist").read_bytes())
     assert info["CFBundleExecutable"] == "launcher" and info["LSUIElement"] is True
+    icon = target / "Contents" / "Resources" / f"{info['CFBundleIconFile']}.icns"
+    assert icon.read_bytes()[:4] == b"icns"
     subprocess.run([str(target / "Contents" / "MacOS" / "launcher")], check=True)
     cwd, path, argv = (tmp_path / "called").read_text().strip().split("|")
     assert Path(cwd) == project

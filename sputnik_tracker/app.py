@@ -14,6 +14,7 @@ from .service import ServiceError
 
 APP_NAME = "Sputnik Tracker"
 BUNDLE_ID = "nl.radiosputnik.tracker.app"
+ICON = Path(__file__).resolve().parent / "assets" / "AppIcon.icns"
 
 
 # --- the app itself ------------------------------------------------------
@@ -114,12 +115,16 @@ def build_bundle(target: Path, python: str, project_dir: Path, db_path: Path,
         shutil.rmtree(target)
     macos = target / "Contents" / "MacOS"
     macos.mkdir(parents=True)
+    resources = target / "Contents" / "Resources"
+    resources.mkdir()
+    shutil.copyfile(ICON, resources / ICON.name)
     with open(target / "Contents" / "Info.plist", "wb") as fh:
         plistlib.dump({
             "CFBundleName": APP_NAME,
             "CFBundleDisplayName": APP_NAME,
             "CFBundleIdentifier": BUNDLE_ID,
             "CFBundleExecutable": "launcher",
+            "CFBundleIconFile": ICON.stem,
             "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": "1.0",
             "CFBundleVersion": "1",
