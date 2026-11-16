@@ -104,6 +104,7 @@ def run_app(db: str, stream_url: str) -> None:
                 rumps.MenuItem("Open Control Desk", callback=self.on_show_panel), None,
                 self.track, self.counts, self.message, None,
                 rumps.MenuItem("Open Spotify Playlist", callback=self.on_open_playlist),
+                rumps.MenuItem("Open Tidal Playlist", callback=self.on_open_tidal),
                 rumps.MenuItem("Sync to Spotify Now", callback=self.on_sync),
                 rumps.MenuItem("Show Log", callback=self.on_show_log), None,
                 rumps.MenuItem("Quit", callback=self.on_quit),
@@ -168,6 +169,7 @@ def run_app(db: str, stream_url: str) -> None:
                     self.panel = Panel({"toggle": lambda: self.on_toggle(None),
                                         "sync": lambda: self.on_sync(None),
                                         "playlist": lambda: self.on_open_playlist(None),
+                                        "tidal": lambda: self.on_open_tidal(None),
                                         "close": lambda: self.on_quit(None)})
                 except Exception as exc:
                     log.warning("Control desk unavailable: %s", exc)
@@ -195,6 +197,7 @@ def run_app(db: str, stream_url: str) -> None:
             self.message.title = state["message"] or (
                 "Listening to Radio Sputnik" if state["listening"] else "Not listening")
             self.playlist_id = state["playlist_id"]
+            self.tidal_playlist_id = state.get("tidal_playlist_id")
 
         def on_toggle(self, _):
             controller.stop() if controller.listening else controller.start()
@@ -205,6 +208,13 @@ def run_app(db: str, stream_url: str) -> None:
                 subprocess.run(["open", f"https://open.spotify.com/playlist/{self.playlist_id}"])
             else:
                 rumps.alert("No playlist yet", "It is created the first time tracks are synced.")
+
+        def on_open_tidal(self, _):
+            if self.tidal_playlist_id:
+                subprocess.run(["open", f"https://tidal.com/playlist/{self.tidal_playlist_id}"])
+            else:
+                rumps.alert("No Tidal playlist yet",
+                            "It is created the first time tracks are synced to Tidal.")
 
         def on_sync(self, _):
             controller.sync_now()

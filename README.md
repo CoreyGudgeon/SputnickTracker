@@ -162,7 +162,8 @@ Open it from Spotlight or Finder. It opens the TeknoRadio control desk, a
 window with a big **СЛУШАТЬ / LISTEN** switch (also the space bar), the track
 counts, a log of the last six tracks with a lamp for each showing whether it
 is in the Spotify playlist (green), found but not added yet (amber), not on
-Spotify (red) or not checked yet (dark), and Sync and Playlist buttons.
+Spotify (red) or not checked yet (dark), a Sync button, and Spotify and Tidal
+buttons that open each playlist.
 
 The app has a Dock icon while it runs. Quit it with Cmd+Q, from the Dock, or
 by closing the window; minimise or hide (Cmd+H) the window to keep listening

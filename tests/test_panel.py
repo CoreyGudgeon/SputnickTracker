@@ -12,6 +12,7 @@ def test_state_script_passes_the_snapshot_as_json():
     data = json.loads(script[len("window.setState && window.setState("):-2])
     assert data == {"listening": True, "tracks": 58, "in_playlist": 23, "recent": recent,
                     "in_tidal": None, "tidal_enabled": None,
+                    "playlist_id": "pl1", "tidal_playlist_id": None,
                     "last_track": 'Artist "A" - </script>', "message": ""}
 
 
@@ -27,5 +28,5 @@ def test_page_talks_to_the_app_through_the_named_handler():
     page = PAGE.read_text(encoding="utf-8")
     assert f"messageHandlers.{HANDLER_NAME}" in page
     assert "window.setState = function" in page
-    for action in ("'toggle'", "'sync'", "'playlist'", "'ready'"):
+    for action in ("'toggle'", "'sync'", "'playlist'", "'tidal'", "'ready'"):
         assert action in page

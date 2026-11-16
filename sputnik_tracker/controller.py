@@ -45,7 +45,7 @@ class Controller:
         self._sync_lock = threading.Lock()   # one playlist sync at a time
         self._state_lock = threading.Lock()
         self._state = {"last_track": None, "tracks": 0, "in_playlist": 0,
-                       "playlist_id": None, "message": "", "recent": [],
+                       "playlist_id": None, "tidal_playlist_id": None, "message": "", "recent": [],
                        "in_tidal": 0, "tidal_enabled": False}
         self._refresh(Store(self.db_path), close=True)
 
@@ -208,6 +208,7 @@ class Controller:
             in_tidal=stats["in_tidal"],
             tidal_enabled=self.db_path.with_name("tidal-session.json").exists(),
             playlist_id=store.get_setting("spotify_playlist_id"),
+            tidal_playlist_id=store.get_setting("tidal_playlist_id"),
             recent=store.recent_plays(),
         )
         if close:

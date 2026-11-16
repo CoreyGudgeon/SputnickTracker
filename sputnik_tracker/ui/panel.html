@@ -394,6 +394,32 @@
   .rtext #message { white-space: normal; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .digits { background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 1px, transparent 1px 3px); }
 
+  /* playlist keys with service badges, enamel inlays worn at the edges */
+  .bottom { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .grid { grid-template-columns: repeat(16, 8px); gap: 4px; padding: 9px 8px; }
+  .grid i { width: 8px; height: 8px; }
+  .readout { grid-template-columns: minmax(0, 1fr) 72px; }
+  .scope { width: 72px; }
+  .keys { gap: 8px; }
+  .key { width: 78px; }
+  .key.svc { width: 66px; gap: 5px; padding-top: 4px; }
+  .badge {
+    position: relative; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+    background: #0B0C0B; box-shadow: inset 0 1px 2px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.08);
+  }
+  .tidal .badge { border-radius: 6px; }
+  .badge::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: var(--soot), radial-gradient(circle at 32% 28%, rgba(255,255,255,.18), transparent 45%);
+    background-size: 180px 180px, auto;
+  }
+  .logo { width: 24px; height: 24px; }
+  .spotify .logo { filter: saturate(.8) brightness(.95) drop-shadow(0 0 3px rgba(29,185,84,.45)); }
+  .tidal .logo { filter: drop-shadow(0 0 3px rgba(236,231,217,.35)); }
+  .key.svc .en { font-size: 9.5px; letter-spacing: 1.5px; opacity: .75; }
+  .key.svc.empty .logo { filter: grayscale(1) brightness(.55); }
+  .key.svc.empty .en { opacity: .4; }
+
   @keyframes blink { 50% { opacity: 0; } }
 
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -520,7 +546,8 @@
     </div>
     <div class="keys">
       <button class="key" id="sync" type="button"><span class="ru">СИНХР.</span><span class="en">SYNC</span></button>
-      <button class="key" id="open" type="button"><span class="ru">СПИСОК</span><span class="en">PLAYLIST</span></button>
+      <button class="key svc spotify" id="open" type="button" aria-label="Open the Spotify playlist"><span class="badge"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11.2" fill="#1DB954"></circle><g fill="none" stroke="#101310" stroke-linecap="round"><path d="M6.2,9.1 C10.4,7.8 15,8.2 18.4,10.2" stroke-width="2.4"></path><path d="M7,12.5 C10.5,11.5 14.3,11.9 17,13.5" stroke-width="2"></path><path d="M7.7,15.7 C10.5,15 13.4,15.3 15.7,16.6" stroke-width="1.7"></path></g></svg></span><span class="en">SPOTIFY</span></button>
+      <button class="key svc tidal" id="open-tidal" type="button" aria-label="Open the Tidal playlist"><span class="badge"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><g fill="#ECE7D9"><polygon points="5,5.4 8.6,9 5,12.6 1.4,9"></polygon><polygon points="12,5.4 15.6,9 12,12.6 8.4,9"></polygon><polygon points="19,5.4 22.6,9 19,12.6 15.4,9"></polygon><polygon points="12,12.4 15.6,16 12,19.6 8.4,16"></polygon></g></svg></span><span class="en">TIDAL</span></button>
     </div>
   </section>
 </main>
@@ -607,6 +634,8 @@
     document.getElementById('tidal').textContent = tidalOn ? pad(s.in_tidal) : '----';
     document.getElementById('tidal-counter').classList.toggle('na', !tidalOn);
     document.getElementById('message').textContent = s.message || (on ? 'Listening to Radio Sputnik' : 'Not listening');
+    document.getElementById('open').classList.toggle('empty', !s.playlist_id);
+    document.getElementById('open-tidal').classList.toggle('empty', !s.tidal_playlist_id);
     if (s.recent) renderLog(s.recent);
     document.getElementById('uplink').textContent = on ? 'UPLINK ··· ACTIVE' : 'UPLINK ··· STANDBY';
     paintMini();
@@ -659,6 +688,7 @@
   document.getElementById('toggle').addEventListener('click', function () { send('toggle'); });
   document.getElementById('sync').addEventListener('click', function () { send('sync'); });
   document.getElementById('open').addEventListener('click', function () { send('playlist'); });
+  document.getElementById('open-tidal').addEventListener('click', function () { send('tidal'); });
   document.addEventListener('keydown', function (e) {
     if (e.key === ' ' && e.target === document.body) { e.preventDefault(); send('toggle'); }
   });
