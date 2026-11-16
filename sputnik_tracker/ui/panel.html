@@ -403,22 +403,64 @@
   .keys { gap: 8px; }
   .key { width: 78px; }
   .key.svc { width: 66px; gap: 5px; padding-top: 4px; }
+  /* worn-off patches for printed legends */
+  :root {
+    --wear: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.11' numOctaves='3' seed='9' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -3.2 0 0 0 2.55'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  /* each logo sits behind a scratched glass lens in a dull metal bezel */
   .badge {
-    position: relative; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
-    background: #0B0C0B; box-shadow: inset 0 1px 2px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.08);
+    position: relative; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    background: radial-gradient(circle at 50% 45%, #121511, #070807 70%);
+    border: 2px solid #4A463F;
+    box-shadow:
+      0 0 0 1px #0A0A09,                       /* seat in the key */
+      inset 0 0 0 1px rgba(0,0,0,.8),
+      inset 0 3px 5px rgba(0,0,0,.9),          /* lens recessed below the bezel */
+      0 1px 0 rgba(255,255,255,.07);
   }
-  .tidal .badge { border-radius: 6px; }
-  .badge::after {
+  .badge::before {                             /* tarnish on the bezel ring */
+    content: ""; position: absolute; inset: -2px; border-radius: inherit; pointer-events: none;
+    border: 2px solid transparent;
+    background: var(--tarnish) border-box; background-size: 60px 60px;
+    -webkit-mask: linear-gradient(#000 0 0) border-box, linear-gradient(#000 0 0) padding-box;
+    -webkit-mask-composite: xor; mask-composite: exclude; opacity: .9;
+  }
+  .tidal .badge { border-radius: 5px; }
+  .badge::after {                              /* the glass: grime, scratches, a glare */
     content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-    background: var(--soot), radial-gradient(circle at 32% 28%, rgba(255,255,255,.18), transparent 45%);
-    background-size: 180px 180px, auto;
+    background:
+      linear-gradient(125deg, transparent 30%, rgba(255,255,255,.10) 40%, transparent 50%),
+      repeating-linear-gradient(64deg, transparent 0 7px, rgba(255,255,255,.05) 7px 8px, transparent 8px 19px),
+      var(--soot), var(--grime),
+      radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,.55));
+    background-size: auto, auto, 120px 120px, 260px 260px, auto;
   }
-  .logo { width: 24px; height: 24px; }
-  .spotify .logo { filter: saturate(.8) brightness(.95) drop-shadow(0 0 3px rgba(29,185,84,.45)); }
-  .tidal .logo { filter: drop-shadow(0 0 3px rgba(236,231,217,.35)); }
-  .key.svc .en { font-size: 9.5px; letter-spacing: 1.5px; opacity: .75; }
-  .key.svc.empty .logo { filter: grayscale(1) brightness(.55); }
-  .key.svc.empty .en { opacity: .4; }
+  .logo {
+    width: 22px; height: 22px;
+    -webkit-mask-image: var(--wear); mask-image: var(--wear);
+    -webkit-mask-size: 40px 40px; mask-size: 40px 40px;
+  }
+  /* printed in the desk's own inks: phosphor green and yellowed cream */
+  .spotify .logo circle { fill: #79B85E; }
+  .spotify .logo g { stroke: #0B0E0A; }
+  .tidal .logo g { fill: #CFC6AE; }
+  .spotify .logo { filter: brightness(.88) drop-shadow(0 0 3px rgba(124,255,107,.28)); }
+  .tidal .logo { filter: brightness(.9) drop-shadow(0 0 3px rgba(255,214,150,.22)); }
+  .key.svc .en { font-size: 9.5px; letter-spacing: 1.5px; opacity: .62; }
+  /* rubbed and grimy like the other keys, with the paint gone at the corners */
+  .key.svc {
+    background:
+      radial-gradient(ellipse 58% 40% at 50% 40%, rgba(255,255,255,.07), transparent 70%),
+      radial-gradient(ellipse 14px 8px at 6% 96%, rgba(10,9,8,.7), transparent 70%),
+      radial-gradient(ellipse 10px 7px at 96% 4%, rgba(10,9,8,.6), transparent 70%),
+      var(--soot), var(--grain),
+      linear-gradient(180deg, #34312D, #1D1B19);
+    background-size: auto, auto, auto, 180px 180px, 180px 180px, auto;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 0 10px rgba(0,0,0,.45), 0 4px 0 #0D0B0A;
+  }
+  .key.svc.empty .logo { filter: grayscale(1) brightness(.4); }
+  .key.svc.empty .badge { border-color: #3A3631; }
+  .key.svc.empty .en { opacity: .35; }
 
   @keyframes blink { 50% { opacity: 0; } }
 
