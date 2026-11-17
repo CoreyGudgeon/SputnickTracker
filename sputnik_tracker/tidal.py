@@ -89,12 +89,18 @@ class TidalClient:
     def add_to_playlist(self, playlist_id: str, track_ids: list[str]) -> None:
         self.session.playlist(playlist_id).add(track_ids)
 
+    def playlist_size(self, playlist_id: str) -> int:
+        """Tidal's own count of the playlist's tracks, used to decide when to
+        start a new playlist."""
+        return int(self.session.playlist(playlist_id).num_tracks)
+
 
 @dataclass
 class SyncResult:
     added: list[str] = field(default_factory=list)      # "Artist - Title"
     not_found: list[str] = field(default_factory=list)
-    playlist_id: str | None = None
+    playlist_id: str | None = None                      # the playlist now being filled
+    new_playlists: list[str] = field(default_factory=list)  # titles started by this sync
     stopped_early: str | None = None                    # why, when lookups were cut short
 
 
@@ -131,21 +137,19 @@ def sync(store: Store, client: TidalLike, playlist_name: str = "Radio Sputnik",
     if dry_run:
         return result
 
-    # 2. Add everything found but not yet in the playlist.
-    pending = store.tracks_to_add(service=SERVICE)
-    if not pending:
-        return result
+    # 2. Add everything found but not yet in a playlist, moving on to a new
+    #    playlist when the current one is full.
+    from .playlists import add_with_rollover
+
+    def added(batch) -> None:
+        for row in batch:
+            result.added.append(f"{row['artist']} - {row['title']}")
+            progress(f"  + {row['artist']} - {row['title']}")
+
     try:
-        if result.playlist_id is None:
-            result.playlist_id = client.create_playlist(playlist_name)
-            store.set_setting("tidal_playlist_id", result.playlist_id)
-        for start in range(0, len(pending), 100):
-            batch = pending[start:start + 100]
-            client.add_to_playlist(result.playlist_id, [row["tidal_id"] for row in batch])
-            store.mark_added([row["track_key"] for row in batch], service=SERVICE)
-            for row in batch:
-                result.added.append(f"{row['artist']} - {row['title']}")
-                progress(f"  + {row['artist']} - {row['title']}")
+        result.playlist_id, result.new_playlists = add_with_rollover(
+            store, SERVICE, client, store.tracks_to_add(service=SERVICE), playlist_name,
+            on_added=added)
     except Exception as exc:
         raise TidalError(f"could not update the playlist: {exc}") from exc
     return result

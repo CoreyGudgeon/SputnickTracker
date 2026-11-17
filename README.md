@@ -117,6 +117,11 @@ every identified track; 2 or more skips tracks matched by a single clip),
 
 It is safe to run `sync` while `listen` is running.
 
+**Full playlists.** Spotify caps a playlist at 10,000 tracks and Tidal seems
+to as well. When a playlist reaches 9,500 tracks the tracker starts a new one
+("Radio Sputnik 2", then "Radio Sputnik 3") and carries on there; the app's
+playlist buttons open the newest. The same applies to Tidal sync.
+
 Once this setup is done, `listen` also syncs by itself every 15 minutes
 (`--sync-every MINUTES` to change it, `--sync-every 0` to turn it off).
 

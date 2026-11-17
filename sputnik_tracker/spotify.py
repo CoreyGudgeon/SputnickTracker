@@ -129,7 +129,8 @@ def find_on_spotify(client: SpotifyClient, artist: str, title: str,
 class SyncResult:
     added: list[str] = field(default_factory=list)      # "Artist - Title"
     not_found: list[str] = field(default_factory=list)
-    playlist_id: str | None = None
+    playlist_id: str | None = None                      # the playlist now being filled
+    new_playlists: list[str] = field(default_factory=list)  # titles started by this sync
 
 
 def sync(store: Store, client: SpotifyClient, playlist_name: str = "Radio Sputnik",
@@ -149,16 +150,13 @@ def sync(store: Store, client: SpotifyClient, playlist_name: str = "Radio Sputni
     if dry_run:
         return result
 
-    # 2. Add everything found but not yet in the playlist.
-    pending = store.tracks_to_add()
-    if not pending:
-        return result
-    if result.playlist_id is None:
-        result.playlist_id = client.create_playlist(playlist_name)
-        store.set_setting("spotify_playlist_id", result.playlist_id)
-    for start in range(0, len(pending), 100):  # Spotify accepts 100 per request
-        batch = pending[start:start + 100]
-        client.add_to_playlist(result.playlist_id, [row["spotify_uri"] for row in batch])
-        store.mark_added([row["track_key"] for row in batch])
-        result.added += [f"{row['artist']} - {row['title']}" for row in batch]
+    # 2. Add everything found but not yet in a playlist, moving on to a new
+    #    playlist when the current one is full.
+    from .playlists import add_with_rollover
+
+    def added(batch) -> None:
+        result.added.extend(f"{row['artist']} - {row['title']}" for row in batch)
+
+    result.playlist_id, result.new_playlists = add_with_rollover(
+        store, "spotify", client, store.tracks_to_add(), playlist_name, on_added=added)
     return result

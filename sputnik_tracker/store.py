@@ -179,6 +179,11 @@ class Store:
             f"WHERE s.{column} IS NOT NULL AND s.added_at IS NULL "
             "GROUP BY s.track_key ORDER BY first_heard").fetchall()
 
+    def count_added(self, service: str = "spotify") -> int:
+        table, _ = SERVICES[service]
+        return self.db.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE added_at IS NOT NULL").fetchone()[0]
+
     def mark_added(self, track_keys: list[str], service: str = "spotify") -> None:
         table, _ = SERVICES[service]
         now = _iso(datetime.now(timezone.utc))

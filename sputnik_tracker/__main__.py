@@ -213,6 +213,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{verb} {len(result.added)} tracks; {len(result.not_found)} not found on Tidal")
         if result.stopped_early:
             print(f"Stopped early: {result.stopped_early}. Run the command again to continue.")
+        for title in result.new_playlists:
+            print(f"started a new playlist: {title}")
         if result.playlist_id and not args.dry_run:
             print(f"playlist: https://tidal.com/playlist/{result.playlist_id}")
         return 0
@@ -241,6 +243,8 @@ def main(argv: list[str] | None = None) -> int:
         for label in result.not_found:
             print(f"  ? not on Spotify: {label}")
         print(f"{verb} {len(result.added)} tracks; {len(result.not_found)} not found on Spotify")
+        for title in result.new_playlists:
+            print(f"started a new playlist: {title}")
         if result.playlist_id and not args.dry_run:
             print(f"playlist: https://open.spotify.com/playlist/{result.playlist_id}")
         return 0
